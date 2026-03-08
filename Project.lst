@@ -1,4 +1,4 @@
-Microsoft (R) Macro Assembler Version 14.50.35723.0	    03/05/26 09:44:25
+Microsoft (R) Macro Assembler Version 14.50.35723.0	    03/08/26 16:44:50
 BrainrotGuesser.asm					     Page 1 - 1
 
 
@@ -62,32 +62,33 @@ BrainrotGuesser.asm					     Page 1 - 1
 	   6F 6C 65 20 77
 	   6F 72 64 3A 20
 	   00
- 0000156E 46 6F 75 6E 64	    msg_hit       BYTE "Found a match!", 13, 10, 0
-	   20 61 20 6D 61
-	   74 63 68 21 0D
-	   0A 00
- 0000157F 4E 6F 74 20 69	    msg_miss      BYTE "Not in the word.", 13, 10, 0
-	   6E 20 74 68 65
-	   20 77 6F 72 64
-	   2E 0D 0A 00
- 00001592 59 6F 75 20 67	    msg_win       BYTE "You got it! You win!", 13, 10, 0
+ 0000156E 20 46 6F 75 6E	    msg_hit       BYTE " Found a match!", 13, 10, 0
+	   64 20 61 20 6D
+	   61 74 63 68 21
+	   0D 0A 00
+ 00001580 20 4E 6F 74 20	    msg_miss      BYTE " Not in the word.", 13, 10, 0
+	   69 6E 20 74 68
+	   65 20 77 6F 72
+	   64 2E 0D 0A 00
+ 00001594 59 6F 75 20 67	    msg_win       BYTE "You got it! You win!", 13, 10, 0
 	   6F 74 20 69 74
 	   21 20 59 6F 75
 	   20 77 69 6E 21
 	   0D 0A 00
- 000015A9 49 6E 63 6F 72	    msg_lose      BYTE "Incorrect. Game Over.", 13, 10, 0
+ 000015AB 49 6E 63 6F 72	    msg_lose      BYTE "Incorrect. Game Over.", 13, 10, 0
 	   72 65 63 74 2E
 	   20 47 61 6D 65
 	   20 4F 76 65 72
 	   2E 0D 0A 00
+ 000015C3 20 00			    space         BYTE  " ", 0
 				    
- 000015C1  00000400 [		    mask_buffer   BYTE 1024 DUP(0)  ; Holds underscores like "_ _ _ _"
+ 000015C5  00000400 [		    mask_buffer   BYTE 1024 DUP(0)  ; Holds underscores like "_ _ _ _"
 	    00
 	   ]
- 000019C1  00000400 [		    user_input    BYTE 1024 DUP(0)  ; Holds the final word guess
+ 000019C5  00000400 [		    user_input    BYTE 1024 DUP(0)  ; Holds the final word guess
 	    00
 	   ]
- 00001DC1 00000005		    guesses_left  DWORD 5
+ 00001DC5 00000005		    guesses_left  DWORD 5
 
  00000000			.code
 
@@ -115,6 +116,37 @@ BrainrotGuesser.asm					     Page 1 - 1
 
 				OPENFILEREAD MACRO
 				    INVOKE ReadFile, file_handle, ADDR file_buffer, 4096, ADDR bytes_read, 0
+				ENDM
+
+
+
+				;---------------------------------------------------------
+				; MACRO: CMP_NOCASE
+				; Normalizes two 8-bit characters to uppercase and compares them.
+				; Note: This modifies the registers provided.
+				;---------------------------------------------------------
+				CMP_NOCASE MACRO char1, char2
+				    LOCAL skip1, skip2
+				    push eax
+				    push ebx
+				    ; Convert char1 to uppercase if it's a lowercase letter
+				    cmp char1, 'a'
+				    jb  skip1
+				    cmp char1, 'z'
+				    ja  skip1
+				    and char1, 11011111b    ;; to uppercase (0xDF)
+				    skip1:
+
+				        ; Convert char2 to uppercase if it's a lowercase letter
+				        cmp char2, 'a'
+				        jb  skip2
+				        cmp char2, 'z'
+				        ja  skip2
+				        and char2, 11011111b    ;; to uppercase (0xDF)
+				    skip2:
+				        cmp char1, char2        ;; Final comparison
+				        pop ebx
+				        pop eax
 				ENDM
 
 
@@ -257,7 +289,7 @@ BrainrotGuesser.asm					     Page 1 - 1
 				;---------------------------------------------------------
 				    ; Create the mask (underscores)
  00000158  BE 00000116 R	    mov esi, OFFSET line_buffer
- 0000015D  BF 000015C1 R	    mov edi, OFFSET mask_buffer
+ 0000015D  BF 000015C5 R	    mov edi, OFFSET mask_buffer
  00000162			    MaskLoop:
  00000162  AC			        lodsb
  00000163  3C 00		        cmp al, 0
@@ -269,81 +301,100 @@ BrainrotGuesser.asm					     Page 1 - 1
  0000016D  C6 07 00		        mov BYTE PTR [edi], 0
 
  00000170			    GameLoop:
- 00000170  83 3D 00001DC1 R	        cmp guesses_left, 0
+ 00000170  83 3D 00001DC5 R	        cmp guesses_left, 0
 	   00
- 00000177  74 6F		        je  FinalInput
+ 00000177  0F 84 00000095	        je  FinalInput
 
 				        ; Display Progress
- 00000179  BA 000015C1 R	        mov edx, OFFSET mask_buffer
- 0000017E  E8 00000000 E	        call WriteString
- 00000183  E8 00000000 E	        call CrLf
+ 0000017D  BA 000015C5 R	        mov edx, OFFSET mask_buffer
+ 00000182  E8 00000000 E	        call WriteString
+ 00000187  E8 00000000 E	        call CrLf
 
 				        ; Prompt User
- 00000188  BA 00001527 R	        mov edx, OFFSET prompt_char
- 0000018D  E8 00000000 E	        call WriteString
- 00000192  A1 00001DC1 R	        mov eax, guesses_left
- 00000197  E8 00000000 E	        call WriteDec
+ 0000018C  BA 00001527 R	        mov edx, OFFSET prompt_char
+ 00000191  E8 00000000 E	        call WriteString
+ 00000196  A1 00001DC5 R	        mov eax, guesses_left
+ 0000019B  E8 00000000 E	        call WriteDec
+				        
+ 000001A0  E8 00000000 E	        call Crlf
 
- 0000019C  E8 00000000 E	        call ReadChar
- 000001A1  E8 00000000 E	        call WriteChar
- 000001A6  B3 00		        mov bl, 0           ; Hit flag
+ 000001A5  E8 00000000 E	        call ReadChar
+ 000001AA  E8 00000000 E	        call WriteChar
+ 000001AF  B3 00		        mov bl, 0           ; Hit flag
 				        
 				        ; Scan for hits
- 000001A8  BE 00000116 R	        mov esi, OFFSET line_buffer
- 000001AD  BF 000015C1 R	        mov edi, OFFSET mask_buffer
- 000001B2			    ScanHits:
- 000001B2  8A 3E		        mov bh, [esi]
- 000001B4  80 FF 00		        cmp bh, 0
- 000001B7  74 0C		        je  ScanDone
- 000001B9  3A F8		        cmp bh, al
- 000001BB  75 04		        jne NoMatch
- 000001BD  88 07		        mov [edi], al
- 000001BF  B3 01		        mov bl, 1
- 000001C1			    NoMatch:
- 000001C1  46			        inc esi
- 000001C2  47			        inc edi
- 000001C3  EB ED		        jmp ScanHits
- 000001C5			    ScanDone:
- 000001C5  FF 0D 00001DC1 R	        dec guesses_left
- 000001CB  80 FB 01		        cmp bl, 1
- 000001CE  74 0C		        je  Hit
- 000001D0  BA 0000157F R	        mov edx, OFFSET msg_miss
- 000001D5  E8 00000000 E	        call WriteString
- 000001DA  EB 94		        jmp GameLoop
- 000001DC			    Hit:
- 000001DC  BA 0000156E R	        mov edx, OFFSET msg_hit
- 000001E1  E8 00000000 E	        call WriteString
- 000001E6  EB 88		        jmp GameLoop
+ 000001B1  BE 00000116 R	        mov esi, OFFSET line_buffer
+ 000001B6  BF 000015C5 R	        mov edi, OFFSET mask_buffer
+ 000001BB			    ScanHits:
+ 000001BB  8A 3E		        mov bh, [esi]
+ 000001BD  80 FF 00		        cmp bh, 0
+ 000001C0  74 27		        je  ScanDone
+				        CMP_NOCASE bh, al
+ 000001C2  50		     1	    push eax
+ 000001C3  53		     1	    push ebx
+ 000001C4  80 FF 61	     1	    cmp bh, 'a'
+ 000001C7  72 08	     1	    jb  ??0000
+ 000001C9  80 FF 7A	     1	    cmp bh, 'z'
+ 000001CC  77 03	     1	    ja  ??0000
+ 000001CE  80 E7 DF	     1	    and bh, 11011111b    
+ 000001D1		     1	    ??0000:
+ 000001D1  3C 61	     1	        cmp al, 'a'
+ 000001D3  72 06	     1	        jb  ??0001
+ 000001D5  3C 7A	     1	        cmp al, 'z'
+ 000001D7  77 02	     1	        ja  ??0001
+ 000001D9  24 DF	     1	        and al, 11011111b    
+ 000001DB		     1	    ??0001:
+ 000001DB  3A F8	     1	        cmp bh, al        
+ 000001DD  5B		     1	        pop ebx
+ 000001DE  58		     1	        pop eax
+ 000001DF  75 04		        jne NoMatch
+ 000001E1  88 07		        mov [edi], al
+ 000001E3  B3 01		        mov bl, 1
+ 000001E5			    NoMatch:
+ 000001E5  46			        inc esi
+ 000001E6  47			        inc edi
+ 000001E7  EB D2		        jmp ScanHits
+ 000001E9			    ScanDone:
+ 000001E9  FF 0D 00001DC5 R	        dec guesses_left
+ 000001EF  80 FB 01		        cmp bl, 1
+ 000001F2  74 0F		        je  Hit
+ 000001F4  BA 00001580 R	        mov edx, OFFSET msg_miss
+ 000001F9  E8 00000000 E	        call WriteString
+ 000001FE  E9 FFFFFF6D		        jmp GameLoop
+ 00000203			    Hit:
+ 00000203  BA 0000156E R	        mov edx, OFFSET msg_hit
+ 00000208  E8 00000000 E	        call WriteString
+ 0000020D  E9 FFFFFF5E		        jmp GameLoop
 
- 000001E8			    FinalInput:
- 000001E8  E8 00000000 E	        call CrLf
- 000001ED  BA 0000154A R	        mov edx, OFFSET prompt_final
- 000001F2  E8 00000000 E	        call WriteString
- 000001F7  BA 000019C1 R	        mov edx, OFFSET user_input
- 000001FC  B9 00000400		        mov ecx, SIZEOF user_input
- 00000201  E8 00000000 E	        call ReadString
+ 00000212			    FinalInput:
+ 00000212  E8 00000000 E	        call CrLf
+ 00000217  BA 0000154A R	        mov edx, OFFSET prompt_final
+ 0000021C  E8 00000000 E	        call WriteString
+ 00000221  BA 000019C5 R	        mov edx, OFFSET user_input
+ 00000226  B9 00000400		        mov ecx, SIZEOF user_input
+ 0000022B  E8 00000000 E	        call ReadString
 
 				        ; Compare user_input to line_buffer
- 00000206  BE 000019C1 R	        mov esi, OFFSET user_input
- 0000020B  BF 00000116 R	        mov edi, OFFSET line_buffer
+ 00000230  BE 000019C5 R	        mov esi, OFFSET user_input
+ 00000235  BF 00000116 R	        mov edi, OFFSET line_buffer
 				        INVOKE Str_compare, ADDR user_input, ADDR line_buffer
- 00000210  68 00000116 R   *	    push   OFFSET line_buffer
- 00000215  68 000019C1 R   *	    push   OFFSET user_input
- 0000021A  E8 00000000 E   *	    call   Str_compare
- 0000021F  74 0C		        jz  Win
- 00000221  BA 000015A9 R	        mov edx, OFFSET msg_lose
- 00000226  E8 00000000 E	        call WriteString
- 0000022B  EB 0A		        jmp GameExit
- 0000022D			    Win:
- 0000022D  BA 00001592 R	        mov edx, OFFSET msg_win
- 00000232  E8 00000000 E	        call WriteString
- 00000237			    GameExit:
- 00000237  C3			        ret
- 00000238			PlayGuessingGame ENDP
+ 0000023A  68 00000116 R   *	    push   OFFSET line_buffer
+ 0000023F  68 000019C5 R   *	    push   OFFSET user_input
+ 00000244  E8 00000000 E   *	    call   Str_compare
+ 00000249  74 0C		        jz  Win
+ 0000024B  BA 000015AB R	        mov edx, OFFSET msg_lose
+ 00000250  E8 00000000 E	        call WriteString
+ 00000255  EB 0A		        jmp GameExit
+ 00000257			    Win:
+ 00000257  BA 00001594 R	        mov edx, OFFSET msg_win
+ 0000025C  E8 00000000 E	        call WriteString
+ 00000261			    GameExit:
+ 00000261  C3			        ret
+ 00000262			PlayGuessingGame ENDP
 
 
 				END main
-Microsoft (R) Macro Assembler Version 14.50.35723.0	    03/05/26 09:44:25
+Microsoft (R) Macro Assembler Version 14.50.35723.0	    03/08/26 16:44:50
 BrainrotGuesser.asm					     Symbols 2 - 1
 
 
@@ -353,6 +404,7 @@ Macros:
 
                 N a m e                 Type
 
+CMP_NOCASE . . . . . . . . . . .	Proc
 OPENFILECREATE . . . . . . . . .	Proc
 OPENFILEREAD . . . . . . . . . .	Proc
 
@@ -445,8 +497,8 @@ Segments and Groups:
 
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
-_DATA  . . . . . . . . . . . . .	32 Bit	 00001DC5 Para	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 00000238 Para	  Public  'CODE'	
+_DATA  . . . . . . . . . . . . .	32 Bit	 00001DC9 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 00000262 Para	  Public  'CODE'	
 
 
 Procedures, parameters, and locals:
@@ -515,17 +567,19 @@ OpenInputFile  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 ParseDecimal32 . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 ParseInteger32 . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 PeekConsoleInputA  . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-PlayGuessingGame . . . . . . . .	P Near	 00000158 _TEXT	Length= 000000E0 Public STDCALL
+PlayGuessingGame . . . . . . . .	P Near	 00000158 _TEXT	Length= 0000010A Public STDCALL
   MaskLoop . . . . . . . . . . .	L Near	 00000162 _TEXT	
   DoneMask . . . . . . . . . . .	L Near	 0000016D _TEXT	
   GameLoop . . . . . . . . . . .	L Near	 00000170 _TEXT	
-  ScanHits . . . . . . . . . . .	L Near	 000001B2 _TEXT	
-  NoMatch  . . . . . . . . . . .	L Near	 000001C1 _TEXT	
-  ScanDone . . . . . . . . . . .	L Near	 000001C5 _TEXT	
-  Hit  . . . . . . . . . . . . .	L Near	 000001DC _TEXT	
-  FinalInput . . . . . . . . . .	L Near	 000001E8 _TEXT	
-  Win  . . . . . . . . . . . . .	L Near	 0000022D _TEXT	
-  GameExit . . . . . . . . . . .	L Near	 00000237 _TEXT	
+  ScanHits . . . . . . . . . . .	L Near	 000001BB _TEXT	
+  ??0000 . . . . . . . . . . . .	L Near	 000001D1 _TEXT	
+  ??0001 . . . . . . . . . . . .	L Near	 000001DB _TEXT	
+  NoMatch  . . . . . . . . . . .	L Near	 000001E5 _TEXT	
+  ScanDone . . . . . . . . . . .	L Near	 000001E9 _TEXT	
+  Hit  . . . . . . . . . . . . .	L Near	 00000203 _TEXT	
+  FinalInput . . . . . . . . . .	L Near	 00000212 _TEXT	
+  Win  . . . . . . . . . . . . .	L Near	 00000257 _TEXT	
+  GameExit . . . . . . . . . . .	L Near	 00000261 _TEXT	
 Random32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 RandomRange  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 Randomize  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
@@ -810,7 +864,7 @@ file_handle  . . . . . . . . . .	DWord	 0000151F _DATA
 filename_copy  . . . . . . . . .	Byte	 00000016 _DATA	
 gray . . . . . . . . . . . . . .	Number	 00000008h   
 green  . . . . . . . . . . . . .	Number	 00000002h   
-guesses_left . . . . . . . . . .	DWord	 00001DC1 _DATA	
+guesses_left . . . . . . . . . .	DWord	 00001DC5 _DATA	
 is_copying . . . . . . . . . . .	Byte	 0000151E _DATA	
 lightBlue  . . . . . . . . . . .	Number	 00000009h   
 lightCyan  . . . . . . . . . . .	Number	 0000000Bh   
@@ -820,16 +874,17 @@ lightMagenta . . . . . . . . . .	Number	 0000000Dh
 lightRed . . . . . . . . . . . .	Number	 0000000Ch   
 line_buffer  . . . . . . . . . .	Byte	 00000116 _DATA	
 magenta  . . . . . . . . . . . .	Number	 00000005h   
-mask_buffer  . . . . . . . . . .	Byte	 000015C1 _DATA	
+mask_buffer  . . . . . . . . . .	Byte	 000015C5 _DATA	
 msg_hit  . . . . . . . . . . . .	Byte	 0000156E _DATA	
-msg_lose . . . . . . . . . . . .	Byte	 000015A9 _DATA	
-msg_miss . . . . . . . . . . . .	Byte	 0000157F _DATA	
-msg_win  . . . . . . . . . . . .	Byte	 00001592 _DATA	
+msg_lose . . . . . . . . . . . .	Byte	 000015AB _DATA	
+msg_miss . . . . . . . . . . . .	Byte	 00001580 _DATA	
+msg_win  . . . . . . . . . . . .	Byte	 00001594 _DATA	
 prompt_char  . . . . . . . . . .	Byte	 00001527 _DATA	
 prompt_final . . . . . . . . . .	Byte	 0000154A _DATA	
 red  . . . . . . . . . . . . . .	Number	 00000004h   
+space  . . . . . . . . . . . . .	Byte	 000015C3 _DATA	
 target_line  . . . . . . . . . .	DWord	 00001516 _DATA	
-user_input . . . . . . . . . . .	Byte	 000019C1 _DATA	
+user_input . . . . . . . . . . .	Byte	 000019C5 _DATA	
 white  . . . . . . . . . . . . .	Number	 0000000Fh   
 wsprintf . . . . . . . . . . . .	Text   	 wsprintfA
 yellow . . . . . . . . . . . . .	Number	 0000000Eh   

@@ -18,10 +18,11 @@ INCLUDE Irvine32.inc
 
     prompt_char   BYTE "Guess a letter (5 attempts left): ", 0
     prompt_final  BYTE "Final chance! Type the whole word: ", 0
-    msg_hit       BYTE "Found a match!", 13, 10, 0
-    msg_miss      BYTE "Not in the word.", 13, 10, 0
+    msg_hit       BYTE " Found a match!", 13, 10, 0
+    msg_miss      BYTE " Not in the word.", 13, 10, 0
     msg_win       BYTE "You got it! You win!", 13, 10, 0
     msg_lose      BYTE "Incorrect. Game Over.", 13, 10, 0
+    space         BYTE  " ", 0
     
     mask_buffer   BYTE 1024 DUP(0)  ; Holds underscores like "_ _ _ _"
     user_input    BYTE 1024 DUP(0)  ; Holds the final word guess
@@ -51,6 +52,30 @@ ENDM
 
 OPENFILEREAD MACRO
     INVOKE ReadFile, file_handle, ADDR file_buffer, 4096, ADDR bytes_read, 0
+ENDM
+
+CMP_NOCASE MACRO char1, char2
+    LOCAL skip1, skip2
+    push eax
+    push ebx
+    ;; Convert char1 to uppercase if it's a lowercase letter
+    cmp char1, 'a'
+    jb  skip1
+    cmp char1, 'z'
+    ja  skip1
+    and char1, 11011111b    ;; to uppercase (0xDF)
+    skip1:
+
+        ;; Convert char2 to uppercase if it's a lowercase letter
+        cmp char2, 'a'
+        jb  skip2
+        cmp char2, 'z'
+        ja  skip2
+        and char2, 11011111b+
+    skip2:
+        cmp char1, char2
+        pop ebx
+        pop eax
 ENDM
 
 
@@ -180,6 +205,8 @@ PlayGuessingGame PROC
         call WriteString
         mov eax, guesses_left
         call WriteDec
+        
+        call Crlf
 
         call ReadChar
         call WriteChar
@@ -192,7 +219,7 @@ PlayGuessingGame PROC
         mov bh, [esi]
         cmp bh, 0
         je  ScanDone
-        cmp bh, al
+        CMP_NOCASE bh, al
         jne NoMatch
         mov [edi], al
         mov bl, 1
@@ -213,6 +240,8 @@ PlayGuessingGame PROC
         jmp GameLoop
 
     FinalInput:
+        mov edx, OFFSET mask_buffer
+        call WriteString
         call CrLf
         mov edx, OFFSET prompt_final
         call WriteString
